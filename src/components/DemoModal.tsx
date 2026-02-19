@@ -1,6 +1,18 @@
-import React from 'react';
-import { StyleSheet, Text, View, Modal, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useTheme } from '../context/ThemeContext';
+import { deepseekService, ToneType } from '../services/deepseekService';
 
 interface DemoModalProps {
   visible: boolean;
@@ -9,179 +21,250 @@ interface DemoModalProps {
 
 export const DemoModal: React.FC<DemoModalProps> = ({ visible, onClose }) => {
   const { colors } = useTheme();
+  const [inputText, setInputText] = useState('');
+  const [resultText, setResultText] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [showResult, setShowResult] = useState(false);
+
+  const handlePolishText = async () => {
+    if (!inputText.trim()) {
+      alert('Пожалуйста, введите текст');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await deepseekService.polishText(inputText);
+      setResultText(result);
+      setShowResult(true);
+    } catch (error) {
+      console.error('Polish error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleChangeTone = async (tone: ToneType) => {
+    if (!inputText.trim()) {
+      alert('Пожалуйста, введите текст');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await deepseekService.changeTone(inputText, tone);
+      setResultText(result);
+      setShowResult(true);
+    } catch (error) {
+      console.error('Change tone error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleClose = () => {
+    setInputText('');
+    setResultText('');
+    setShowResult(false);
+    onClose();
+  };
 
   return (
     <Modal
       visible={visible}
       transparent
       animationType="fade"
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
-      <View style={styles.overlay}>
-        <View
-          style={[
-            styles.modalContent,
-            { backgroundColor: colors.background },
-          ]}
-        >
-          <View style={styles.header}>
-            <Text style={[styles.title, { color: colors.text }]}>
-              Как работает AI
-            </Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Text style={[styles.closeText, { color: colors.text }]}>✕</Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView
-            style={styles.content}
-            showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardContainer}
+      >
+        <View style={styles.overlay}>
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: colors.background },
+            ]}
           >
-            <View style={styles.demoStep}>
-              <Text
-                style={[
-                  styles.stepTitle,
-                  { color: colors.text },
-                ]}
-              >
-                Пример 1: Исправление ошибок
+            <View style={[styles.header, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.title, { color: colors.text }]}>
+                Попробуйте AI прямо сейчас
               </Text>
-              <View
-                style={[
-                  styles.exampleBox,
-                  { backgroundColor: colors.surface, borderColor: colors.border },
-                ]}
-              >
-                <Text style={[styles.label, { color: colors.textSecondary }]}>
-                  Было:
-                </Text>
-                <Text style={[styles.exampleText, { color: colors.text }]}>
-                  Привет, как дела? Я хотел бы обсудить проект с вами.
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.exampleBox,
-                  { backgroundColor: colors.accent + '15', borderColor: colors.accent },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.label,
-                    { color: colors.accent },
-                  ]}
-                >
-                  AI исправила:
-                </Text>
-                <Text style={[styles.exampleText, { color: colors.text }]}>
-                  Здравствуйте! Я хотел бы обсудить детали проекта с вами.
-                </Text>
-              </View>
+              <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+                <Text style={[styles.closeText, { color: colors.text }]}>✕</Text>
+              </TouchableOpacity>
             </View>
 
-            <View style={styles.demoStep}>
-              <Text
-                style={[
-                  styles.stepTitle,
-                  { color: colors.text },
-                ]}
-              >
-                Пример 2: Смена тона
-              </Text>
-              <View
-                style={[
-                  styles.exampleBox,
-                  { backgroundColor: colors.surface, borderColor: colors.border },
-                ]}
-              >
-                <Text style={[styles.label, { color: colors.textSecondary }]}>
-                  Формальный тон:
-                </Text>
-                <Text style={[styles.exampleText, { color: colors.text }]}>
-                  Уважаемый господин! Прошу вас рассмотреть мою кандидатуру.
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.exampleBox,
-                  { backgroundColor: colors.accent + '15', borderColor: colors.accent },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.label,
-                    { color: colors.accent },
-                  ]}
-                >
-                  Дружеский тон:
-                </Text>
-                <Text style={[styles.exampleText, { color: colors.text }]}>
-                  Привет! Думаю, я бы отлично подошел для этой роли! 😊
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.demoStep}>
-              <Text
-                style={[
-                  styles.stepTitle,
-                  { color: colors.text },
-                ]}
-              >
-                Пример 3: Генерация ответа
-              </Text>
-              <View
-                style={[
-                  styles.exampleBox,
-                  { backgroundColor: colors.surface, borderColor: colors.border },
-                ]}
-              >
-                <Text style={[styles.label, { color: colors.textSecondary }]}>
-                  Входящее письмо:
-                </Text>
-                <Text style={[styles.exampleText, { color: colors.text }]}>
-                  Можно ли назначить встречу на завтра?
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.exampleBox,
-                  { backgroundColor: colors.accent + '15', borderColor: colors.accent },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.label,
-                    { color: colors.accent },
-                  ]}
-                >
-                  AI сгенерировала ответ:
-                </Text>
-                <Text style={[styles.exampleText, { color: colors.text }]}>
-                  Спасибо за предложение! К сожалению, завтра у меня напряженный день. Как вам подходит послезавтра в 14:00?
-                </Text>
-              </View>
-            </View>
-          </ScrollView>
-
-          <View style={styles.footer}>
-            <TouchableOpacity
-              onPress={onClose}
-              style={[
-                styles.button,
-                { backgroundColor: colors.accent },
-              ]}
+            <ScrollView
+              style={styles.content}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
             >
-              <Text style={styles.buttonText}>Закрыть</Text>
-            </TouchableOpacity>
+              {!showResult ? (
+                <>
+                  {/* Input Section */}
+                  <View style={styles.section}>
+                    <Text style={[styles.sectionLabel, { color: colors.text }]}>
+                      Введите текст письма:
+                    </Text>
+                    <TextInput
+                      style={[
+                        styles.textInput,
+                        {
+                          backgroundColor: colors.surface,
+                          borderColor: colors.border,
+                          color: colors.text,
+                        },
+                      ]}
+                      placeholder="Введите текст письма или нажмите 'Сгенерировать'"
+                      placeholderTextColor={colors.textSecondary}
+                      multiline
+                      numberOfLines={8}
+                      value={inputText}
+                      onChangeText={setInputText}
+                      editable={!isLoading}
+                    />
+                  </View>
+
+                  {/* Action Buttons */}
+                  <View style={styles.actionsContainer}>
+                    <TouchableOpacity
+                      style={[
+                        styles.actionButton,
+                        {
+                          backgroundColor: colors.accent,
+                          opacity: isLoading ? 0.6 : 1,
+                        },
+                      ]}
+                      onPress={handlePolishText}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? (
+                        <ActivityIndicator color="#fff" size="small" />
+                      ) : (
+                        <Text style={styles.buttonText}>✓ Исправить ошибки</Text>
+                      )}
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.actionButton,
+                        {
+                          backgroundColor: colors.accent + 'DD',
+                          opacity: isLoading ? 0.6 : 1,
+                        },
+                      ]}
+                      onPress={() => handleChangeTone('professional')}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? (
+                        <ActivityIndicator color="#fff" size="small" />
+                      ) : (
+                        <Text style={styles.buttonText}>🎩 Официально</Text>
+                      )}
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.actionButton,
+                        {
+                          backgroundColor: colors.accent + 'BB',
+                          opacity: isLoading ? 0.6 : 1,
+                        },
+                      ]}
+                      onPress={() => handleChangeTone('friendly')}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? (
+                        <ActivityIndicator color="#fff" size="small" />
+                      ) : (
+                        <Text style={styles.buttonText}>😊 Дружелюбно</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </>
+              ) : (
+                <>
+                  {/* Result Section */}
+                  <View style={styles.section}>
+                    <Text style={[styles.sectionLabel, { color: colors.text }]}>
+                      Оригинальный текст:
+                    </Text>
+                    <View
+                      style={[
+                        styles.resultCard,
+                        { backgroundColor: colors.surface, borderColor: colors.border },
+                      ]}
+                    >
+                      <Text style={[styles.resultText, { color: colors.text }]}>
+                        {inputText}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.section}>
+                    <Text style={[styles.sectionLabel, { color: colors.accent }]}>
+                      Результат от AI:
+                    </Text>
+                    <View
+                      style={[
+                        styles.resultCard,
+                        {
+                          backgroundColor: colors.accent + '15',
+                          borderColor: colors.accent,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.resultText, { color: colors.text }]}>
+                        {resultText}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.section}>
+                    <TouchableOpacity
+                      style={[styles.actionButton, { backgroundColor: colors.accent }]}
+                      onPress={() => {
+                        setInputText(resultText);
+                        setShowResult(false);
+                      }}
+                    >
+                      <Text style={styles.buttonText}>↻ Использовать результат</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+            </ScrollView>
+
+            <View style={[styles.footer, { borderTopColor: colors.border }]}>
+              <TouchableOpacity
+                onPress={
+                  showResult
+                    ? () => setShowResult(false)
+                    : handleClose
+                }
+                style={[
+                  styles.footerButton,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                ]}
+              >
+                <Text style={[styles.footerButtonText, { color: colors.text }]}>
+                  {showResult ? '← Назад' : 'Закрыть'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
+  keyboardContainer: {
+    flex: 1,
+  },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -192,6 +275,8 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     maxHeight: '90%',
     paddingBottom: 20,
+    display: 'flex',
+    flexDirection: 'column',
   },
   header: {
     flexDirection: 'row',
@@ -201,7 +286,6 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
   },
   title: {
     fontSize: 18,
@@ -216,46 +300,70 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
   content: {
+    flex: 1,
     paddingHorizontal: 24,
     paddingVertical: 20,
   },
-  demoStep: {
-    marginBottom: 24,
+  section: {
+    marginBottom: 20,
   },
-  stepTitle: {
+  sectionLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 10,
+  },
+  textInput: {
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    fontWeight: '400',
+    textAlignVertical: 'top',
+    minHeight: 120,
+  },
+  actionsContainer: {
+    gap: 10,
+    marginBottom: 10,
+  },
+  actionButton: {
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  buttonText: {
+    color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '600',
-    marginBottom: 12,
   },
-  exampleBox: {
+  resultCard: {
     borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
     borderWidth: 1,
+    padding: 14,
+    minHeight: 100,
   },
-  label: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 6,
-  },
-  exampleText: {
-    fontSize: 13,
+  resultText: {
+    fontSize: 14,
     fontWeight: '400',
-    lineHeight: 18,
+    lineHeight: 20,
   },
   footer: {
     paddingHorizontal: 24,
     paddingTop: 16,
     paddingBottom: 8,
+    borderTopWidth: 1,
   },
-  button: {
+  footerButton: {
     borderRadius: 12,
+    borderWidth: 1,
     paddingVertical: 12,
     alignItems: 'center',
   },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+  footerButtonText: {
+    fontSize: 15,
     fontWeight: '600',
   },
 });

@@ -1,11 +1,11 @@
-import React from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
 import { useTheme } from '../context/ThemeContext';
-import { HomeScreen, AuthScreen, SettingsScreen } from '../screens';
-import { RootStackParamList, BottomTabParamList } from '../types';
+import { AuthScreen, GmailAuthScreen, HomeScreen, SettingsScreen } from '../screens';
+import { BottomTabParamList, RootStackParamList } from '../types';
 
 const Stack = createStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<BottomTabParamList>();
@@ -24,6 +24,13 @@ const HomeStackNavigator = () => {
       <Stack.Screen
         name="Auth"
         component={AuthScreen}
+        options={{
+          cardStyle: { backgroundColor: colors.background },
+        }}
+      />
+      <Stack.Screen
+        name="GmailAuth"
+        component={GmailAuthScreen}
         options={{
           cardStyle: { backgroundColor: colors.background },
         }}

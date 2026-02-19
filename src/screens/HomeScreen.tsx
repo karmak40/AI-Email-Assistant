@@ -1,29 +1,40 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  StyleSheet,
-  ScrollView,
-  View,
-  Text,
-  SafeAreaView,
-  TouchableOpacity,
-  StatusBar,
+    Alert,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
-import { useTheme } from '../context/ThemeContext';
 import {
-  HeroSection,
-  Button,
-  FeatureItem,
-  StepItem,
-  DemoModal,
+    Button,
+    DemoModal,
+    FeatureItem,
+    HeroSection,
+    StepItem,
 } from '../components';
+import { useTheme } from '../context/ThemeContext';
 
 interface HomeScreenProps {
   navigation: any;
+  route: any;
 }
 
-export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
+export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation, route }) => {
   const { colors, theme, toggleTheme } = useTheme();
   const [demoModalVisible, setDemoModalVisible] = useState(false);
+
+  // Обработка параметров навигации (успешное подключение Gmail)
+  useEffect(() => {
+    if (route?.params?.successMessage) {
+      Alert.alert('Успех!', route.params.successMessage);
+      // Очищаем параметры
+      navigation.setParams({ successMessage: undefined, gmailEmail: undefined });
+    }
+  }, [route?.params?.successMessage]);
 
   const features = [
     {
@@ -104,7 +115,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           />
           <Button
             title="Подключить Gmail"
-            onPress={() => navigation.navigate('Auth')}
+            onPress={() => navigation.navigate('GmailAuth')}
             variant="outline"
             size="large"
             style={{ width: '100%', maxWidth: 280 }}
