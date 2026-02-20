@@ -1,5 +1,5 @@
-import React from 'react';
 import * as SplashScreen from 'expo-splash-screen';
+import React from 'react';
 import { ThemeProvider } from './src/context/ThemeContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
 
@@ -12,13 +12,12 @@ export default function App() {
   React.useEffect(() => {
     const prepare = async () => {
       try {
-        // Simulate loading resources or async operations here
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        // Immediately hide splash screen
+        await SplashScreen.hideAsync();
       } catch (e) {
         console.warn(e);
       } finally {
         setAppIsReady(true);
-        await SplashScreen.hideAsync();
       }
     };
 

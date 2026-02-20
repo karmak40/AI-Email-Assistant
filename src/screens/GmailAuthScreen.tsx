@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import {
     ActivityIndicator,
+    Alert,
     SafeAreaView,
     ScrollView,
     StatusBar,
     StyleSheet,
     Text,
     TouchableOpacity,
-    View
+    View,
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { gmailService } from '../services/gmailService';
@@ -37,8 +38,32 @@ export const GmailAuthScreen: React.FC<GmailAuthScreenProps> = ({ navigation }) 
       }
 
       const userId = authData.user.id;
+      console.log('[GmailAuthScreen] User ID:', userId);
 
-      // Запускаем OAuth процесс
+      // Проверяем что пользователь существует в таблице users
+      const { data: userData, error: checkError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', userId);
+
+      console.log('[GmailAuthScreen] User exists check:', userData?.length ? 'YES' : 'NO');
+
+      if (!userData || userData.length === 0) {
+        console.warn('[GmailAuthScreen] User not in users table, creating...');
+        const { error: createUserError } = await supabase.from('users').insert({
+          id: userId,
+          email: authData.user.email,
+          created_at: new Date().toISOString(),
+        });
+
+        if (createUserError) {
+          console.error('[GmailAuthScreen] Error creating user:', createUserError);
+          // Продолжаем несмотря на ошибку RLS
+        }
+      }
+
+      // Запускаем реальную Google авторизацию через gmailService
+      console.log('📧 Открываем форму Google для выбора аккаунта Gmail');
       const { accessToken, refreshToken } = await gmailService.authenticate();
 
       // Сохраняем токены
@@ -58,10 +83,12 @@ export const GmailAuthScreen: React.FC<GmailAuthScreenProps> = ({ navigation }) 
         .eq('id', userId);
 
       if (updateError) {
-        console.warn('Update profile error:', updateError);
+        console.warn('[GmailAuthScreen] Update profile error:', updateError);
       }
 
       // Показываем успешное сообщение и возвращаемся на главный экран
+      Alert.alert('✅ Gmail подключен!', `Email: ${profile.emailAddress}`);
+      
       setIsLoading(false);
 
       // Навигация на главный экран с уведомлением
@@ -71,6 +98,7 @@ export const GmailAuthScreen: React.FC<GmailAuthScreenProps> = ({ navigation }) 
       });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Неизвестная ошибка';
+      console.error('[GmailAuthScreen] Error:', errorMessage);
       setError(errorMessage);
       setIsLoading(false);
     }
@@ -170,8 +198,8 @@ export const GmailAuthScreen: React.FC<GmailAuthScreenProps> = ({ navigation }) 
               <ActivityIndicator color="#1f2937" size="small" />
             ) : (
               <>
-                <Text style={styles.googleButtonIcon}>G</Text>
-                <Text style={styles.googleButtonText}>Войти через Google</Text>
+                <Text style={styles.googleButtonIcon}>📧</Text>
+                <Text style={styles.googleButtonText}>Добавить Gmail аккаунт</Text>
               </>
             )}
           </TouchableOpacity>

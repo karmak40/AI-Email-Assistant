@@ -41,7 +41,7 @@ export const authService = {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
     } catch (error) {
-      console.error('Sign out error:', error);
+      console.error('[authService.signOut]', error);
       throw error;
     }
   },

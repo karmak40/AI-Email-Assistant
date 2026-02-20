@@ -1,14 +1,18 @@
 import React from 'react';
 import {
-  StyleSheet,
-  View,
-  Text,
+  Alert,
+  Modal,
+  Pressable,
   SafeAreaView,
   ScrollView,
-  TouchableOpacity,
+  StyleSheet,
   Switch,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
+import { authService } from '../services/supabase';
 
 interface SettingsScreenProps {
   navigation: any;
@@ -17,6 +21,30 @@ interface SettingsScreenProps {
 export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
   const { colors, theme, toggleTheme } = useTheme();
   const [notificationsEnabled, setNotificationsEnabled] = React.useState(true);
+  const [showLogoutConfirm, setShowLogoutConfirm] = React.useState(false);
+
+  const handleLogout = () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const handleLogoutConfirm = async () => {
+    setShowLogoutConfirm(false);
+    await performLogout();
+  };
+
+  const handleLogoutCancel = () => {
+    setShowLogoutConfirm(false);
+  };
+
+  const performLogout = async () => {
+    try {
+      await authService.signOut();
+      await new Promise(resolve => setTimeout(resolve, 300));
+    } catch (err: any) {
+      console.error('[SettingsScreen] Logout error:', err);
+      Alert.alert('Ошибка', err.message || 'Ошибка при выходе');
+    }
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -178,6 +206,65 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
             <Text style={[styles.arrow, { color: colors.textSecondary }]}>→</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Logout Section */}
+        <View style={styles.section}>
+          <Pressable
+            style={[
+              styles.settingItem,
+              {
+                backgroundColor: '#FF3B30',
+              },
+            ]}
+            onPress={() => {
+              console.log('Logout button pressed');
+              handleLogout();
+            }}
+          >
+            <View style={styles.settingInfo}>
+              <Text style={[styles.settingLabel, { color: '#FFFFFF' }]}>
+                Выход из аккаунта
+              </Text>
+            </View>
+          </Pressable>
+        </View>
+
+        {/* Logout Confirmation Dialog */}
+        <Modal
+          visible={showLogoutConfirm}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={handleLogoutCancel}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.confirmDialog, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Text style={[styles.confirmTitle, { color: colors.text }]}>
+                Выход из аккаунта
+              </Text>
+              <Text style={[styles.confirmMessage, { color: colors.textSecondary }]}>
+                Вы уверены, что хотите выйти?
+              </Text>
+              <View style={styles.confirmButtons}>
+                <Pressable
+                  onPress={handleLogoutCancel}
+                  style={[styles.confirmButton, { backgroundColor: colors.border }]}
+                >
+                  <Text style={[styles.confirmButtonText, { color: colors.text }]}>
+                    Отмена
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleLogoutConfirm}
+                  style={[styles.confirmButton, { backgroundColor: '#FF3B30' }]}
+                >
+                  <Text style={[styles.confirmButtonText, { color: '#FFFFFF' }]}>
+                    Выход
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </ScrollView>
     </SafeAreaView>
   );
@@ -238,5 +325,44 @@ const styles = StyleSheet.create({
   arrow: {
     fontSize: 18,
     fontWeight: '300',
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  confirmDialog: {
+    borderRadius: 20,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    padding: 20,
+    borderWidth: 1,
+    borderTopWidth: 1,
+  },
+  confirmTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  confirmMessage: {
+    fontSize: 14,
+    fontWeight: '400',
+    marginBottom: 20,
+  },
+  confirmButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  confirmButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

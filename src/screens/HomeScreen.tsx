@@ -1,22 +1,26 @@
 import React, { useEffect, useState } from 'react';
 import {
-    Alert,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import {
-    Button,
-    DemoModal,
-    FeatureItem,
-    HeroSection,
-    StepItem,
+  Button,
+  DemoModal,
+  FeatureItem,
+  HeroSection,
+  StepItem,
 } from '../components';
 import { useTheme } from '../context/ThemeContext';
+import { googleProfileService, GoogleUserProfile } from '../services/googleProfileService';
+import { supabase } from '../services/supabase';
 
 interface HomeScreenProps {
   navigation: any;
@@ -26,11 +30,78 @@ interface HomeScreenProps {
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation, route }) => {
   const { colors, theme, toggleTheme } = useTheme();
   const [demoModalVisible, setDemoModalVisible] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userProfile, setUserProfile] = useState<GoogleUserProfile | null>(null);
+  const [gmailConnected, setGmailConnected] = useState(false);
+  const [gmailEmail, setGmailEmail] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Загружаем профиль пользователя при монтировании компонента
+  useEffect(() => {
+    loadUserProfile();
+  }, []);
+
+  const loadUserProfile = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user) {
+        setIsAuthenticated(true);
+        
+        // Получаем данные пользователя из БД
+        const { data: userData } = await supabase
+          .from('users')
+          .select('gmail_email, gmail_connected')
+          .eq('id', session.user.id)
+          .single();
+
+        if (userData?.gmail_connected) {
+          setGmailConnected(true);
+          setGmailEmail(userData.gmail_email);
+        }
+        
+        // Получаем Google токены из Supabase
+        const { data: tokenData } = await supabase
+          .from('user_tokens')
+          .select('access_token')
+          .eq('user_id', session.user.id)
+          .eq('provider', 'gmail')
+          .single();
+
+        if (tokenData?.access_token) {
+          try {
+            const profile = await googleProfileService.getUserProfile(tokenData.access_token);
+            setUserProfile(profile);
+          } catch (profileError) {
+            console.warn('[HomeScreen] Could not load profile, continuing without it:', profileError);
+            // Профиль - не критичный, приложение работает и без него
+            // Можем использовать данные сессии как fallback
+            if (session.user.email) {
+              setUserProfile({
+                id: session.user.id,
+                email: session.user.email,
+                name: session.user.user_metadata?.full_name || 'User',
+              });
+            }
+          }
+        }
+      } else {
+        setIsAuthenticated(false);
+      }
+    } catch (error) {
+      console.error('Error loading user profile:', error);
+      setIsAuthenticated(false);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Обработка параметров навигации (успешное подключение Gmail)
   useEffect(() => {
     if (route?.params?.successMessage) {
       Alert.alert('Успех!', route.params.successMessage);
+      // Перезагружаем профиль
+      loadUserProfile();
       // Очищаем параметры
       navigation.setParams({ successMessage: undefined, gmailEmail: undefined });
     }
@@ -84,10 +155,125 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation, route }) => 
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar barStyle={theme === 'light' ? 'dark-content' : 'light-content'} />
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.accent} />
+        </View>
+      ) : isAuthenticated && userProfile ? (
+        // Экран для авторизованного пользователя
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          {/* Header с профилем */}
+          <View style={styles.authenticatedHeader}>
+            <View style={styles.profileInfo}>
+              {userProfile.picture ? (
+                <Image
+                  source={{ uri: userProfile.picture }}
+                  style={styles.avatar}
+                />
+              ) : (
+                <View style={[styles.avatarPlaceholder, { backgroundColor: colors.surface }]}>
+                  <Text style={styles.avatarInitial}>
+                    {userProfile.given_name?.charAt(0) || userProfile.email.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.userDetails}>
+                <Text style={[styles.userName, { color: colors.text }]}>
+                  {userProfile.given_name || 'Привет'}
+                </Text>
+                <Text style={[styles.userEmail, { color: colors.textSecondary }]}>
+                  {userProfile.email}
+                </Text>
+                {gmailConnected && gmailEmail && (
+                  <View style={styles.gmailStatus}>
+                    <Text style={styles.gmailStatusIcon}>✅</Text>
+                    <Text style={[styles.gmailStatusText, { color: colors.textSecondary }]}>
+                      Gmail: {gmailEmail}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+            <TouchableOpacity
+              onPress={toggleTheme}
+              style={[styles.themeButton, { backgroundColor: colors.surface }]}
+            >
+              <Text style={styles.themeIcon}>{theme === 'light' ? '🌙' : '☀️'}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Основные действия */}
+          <View style={styles.mainActionsContainer}>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('InboxTab')}
+              style={[styles.mainActionCard, { backgroundColor: colors.surface }]}
+            >
+              <Text style={styles.actionIcon}>📧</Text>
+              <Text style={[styles.actionTitle, { color: colors.text }]}>Входящие</Text>
+              <Text style={[styles.actionDescription, { color: colors.textSecondary }]}>
+                Просмотр всех писем
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => navigation.navigate('ComposeTab')}
+              style={[styles.mainActionCard, { backgroundColor: colors.surface }]}
+            >
+              <Text style={styles.actionIcon}>✍️</Text>
+              <Text style={[styles.actionTitle, { color: colors.text }]}>Написать письмо</Text>
+              <Text style={[styles.actionDescription, { color: colors.textSecondary }]}>
+                Создать новое письмо
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Быстрые действия AI */}
+          <View style={[styles.section, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Быстрые действия
+            </Text>
+            <View style={styles.quickActionsContainer}>
+              <TouchableOpacity style={[styles.quickActionItem, { backgroundColor: colors.background }]}>
+                <Text style={styles.quickActionIcon}>💬</Text>
+                <Text style={[styles.quickActionTitle, { color: colors.text }]}>
+                  Ответить на последние
+                </Text>
+                <Text style={[styles.quickActionSubtitle, { color: colors.textSecondary }]}>
+                  AI анализирует непрочитанные
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={[styles.quickActionItem, { backgroundColor: colors.background }]}>
+                <Text style={styles.quickActionIcon}>⚡</Text>
+                <Text style={[styles.quickActionTitle, { color: colors.text }]}>
+                  Проверить срочные
+                </Text>
+                <Text style={[styles.quickActionSubtitle, { color: colors.textSecondary }]}>
+                  AI ищет важные письма
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={[styles.quickActionItem, { backgroundColor: colors.background }]}>
+                <Text style={styles.quickActionIcon}>📋</Text>
+                <Text style={[styles.quickActionTitle, { color: colors.text }]}>
+                  Саммари за день
+                </Text>
+                <Text style={[styles.quickActionSubtitle, { color: colors.textSecondary }]}>
+                  Краткое содержание всех писем
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
+      ) : (
+        // Экран для неавторизованного пользователя
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
         {/* Header с кнопкой темы */}
         <View style={styles.headerContainer}>
           <Text style={[styles.headerTitle, { color: colors.text }]}>
@@ -182,6 +368,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation, route }) => 
           </Text>
         </View>
       </ScrollView>
+      )}
 
       {/* Demo Modal */}
       <DemoModal
@@ -196,9 +383,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   scrollContent: {
     paddingBottom: 40,
   },
+  // Неавторизованный пользователь
   headerContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -211,6 +404,51 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
   },
+  // Авторизованный пользователь
+  authenticatedHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 24,
+  },
+  profileInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  avatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    marginRight: 16,
+  },
+  avatarPlaceholder: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  avatarInitial: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#666',
+  },
+  userDetails: {
+    flex: 1,
+  },
+  userName: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  userEmail: {
+    fontSize: 14,
+    fontWeight: '400',
+  },
   themeButton: {
     width: 44,
     height: 44,
@@ -221,16 +459,82 @@ const styles = StyleSheet.create({
   themeIcon: {
     fontSize: 20,
   },
+  // Основные действия
+  mainActionsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 24,
+    gap: 12,
+    marginBottom: 24,
+  },
+  mainActionCard: {
+    flex: 1,
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionIcon: {
+    fontSize: 32,
+    marginBottom: 8,
+  },
+  actionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  actionDescription: {
+    fontSize: 12,
+    fontWeight: '400',
+    textAlign: 'center',
+  },
+  // Секции
   section: {
-    paddingVertical: 40,
+    paddingVertical: 24,
     paddingHorizontal: 24,
     marginVertical: 8,
   },
   sectionTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '700',
-    marginBottom: 24,
+    marginBottom: 16,
   },
+  // Быстрые действия
+  quickActionsContainer: {
+    gap: 12,
+  },
+  quickActionItem: {
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 8,
+  },
+  quickActionIcon: {
+    fontSize: 24,
+    marginBottom: 8,
+  },
+  quickActionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  quickActionSubtitle: {
+    fontSize: 12,
+    fontWeight: '400',
+  },
+  gmailStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    gap: 6,
+  },
+  gmailStatusIcon: {
+    fontSize: 12,
+  },
+  gmailStatusText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  // Старые стили для неавторизованного экрана
   stepsContainer: {
     marginTop: 0,
   },

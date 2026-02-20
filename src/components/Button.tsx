@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 
 interface ButtonProps {
@@ -77,9 +77,15 @@ export const Button: React.FC<ButtonProps> = ({
     };
   };
 
+  const handlePress = () => {
+    if (!disabled) {
+      onPress();
+    }
+  };
+
   return (
     <TouchableOpacity
-      onPress={onPress}
+      onPress={handlePress}
       disabled={disabled}
       style={[getButtonStyle(), style]}
       activeOpacity={0.8}

@@ -21,17 +21,21 @@ export interface ThemeContextType {
 
 // Navigation types
 export type RootStackParamList = {
-  Home: {
-    successMessage?: string;
-    gmailEmail?: string;
-  } | undefined;
+  BottomTabs: undefined;
   Auth: undefined;
-  Settings: undefined;
   GmailAuth: undefined;
+  MessageDetail: {
+    message: any;
+  };
 };
 
 export type BottomTabParamList = {
-  HomeTab: undefined;
+  HomeTab: {
+    successMessage?: string;
+    gmailEmail?: string;
+  } | undefined;
+  InboxTab: undefined;
+  ComposeTab: undefined;
   SettingsTab: undefined;
 };
 
